@@ -1,4 +1,4 @@
-./seq > tmp.out
+./testSeq ../data/test.fasta > tmp.out
 DIFF=$(diff tmp.out ../data/seq.out)
 if [ "$DIFF" == "" ] 
 then

@@ -1,0 +1,736 @@
+#+begin_src latex
+  \section{Introduction}
+  Sequence data is ubiquitous in molecular biology and
+  bioinformatics. The \texttt{seq} library reads, manipulates, and
+  writes sequences in FASTA format. Figure~\ref{fig:fas} shows an
+  example FASTA file containing two sequences. Each sequence consists of
+  two types of information, the header followed by the sequence proper.
+  \begin{figure}[ht]
+      {\tt
+	>AE005174.2 Escherichia coli O157:H7 str. EDL933 genome\\
+	AGCTTTTCATTCTGACTGCAACGGGCAATATGTCTCTGTGTGGATTAAAAAAAGAGTCTC\\
+	TGACAGCAGCTTCTGAACTGGTTACCTGCCGTGAGTAAATTAAAATTTTATTGACTTAGG\\
+	TCACTAAATACTTTAACCAATATAGGCATAGCGCACAGACAGATAAAAATTACAGAGTAC\\
+	ACAACATCCATGAAACGCATTAGCACCACCATTACCACCACCATCACCACCACCATCACC\\
+	ATTACCATTACCACAGGTAACGGTGCGGGCTGACGCGTACAGGAAACACAGAAAAAAGCC\\
+	...\\
+	>AE005674.2 Shigella flexneri 2a str. 301, complete genome\\
+	AGCTTTTCATTCTGACTGCAACGGGCAATATGTCTCTGTGTGGATTAAAAAAAGAGTGTC\\
+	TGATAGCAGCTTCTGAACTGGTTACCTGCCGTGAGTAAATTAAAATTTTATTGACTTAGG\\
+	TCACTAAATACTTTAACCAATATAGGCATAGCGCACAGACAGATAAAAATTACAGAGTAC\\
+	ACAACATCCATGAAACGCATTAGCACCACCATTACCACCACCATCACCATTACCACAGGT\\
+	AACGGTGCGGGCTGACGCGTACAGGAAACACAGAAAAAAGCCCGCACCTGACAGTGCGGG\\
+	...\\
+      }
+    \caption{An abridged example FASTA file containing the genomes of two
+      bacteria, a strain of \textit{Escherichia coli} and a strain of
+      \textit{Shigella flexneri}.}\label{fig:fas}
+  \end{figure}
+
+  The header is a single line starting in the first column with
+  \texttt{>}. Headers often include a unique identifier of the
+  sequence, its accession. In Figure~\ref{fig:fas} the accessions are
+  \texttt{AE005174.2} and \texttt{AE005674.2}.
+
+
+  The rows of residues contained are arbitrarily long, though in
+  practice they are usually short to make them human readable. In fact,
+  they are often \emph{very} short compared to the total length of the
+  sequence. The \textit{E. coli} genome in Figure~\ref{fig:fas} consists
+  of 5,528,445 nucleotides in 92,141 rows, the \textit{S. flexneri}
+  genome of 4,607,202 nucleotides in 76,788 rows. One design goal is
+  therefore efficient reading of large sequence files.
+
+  The library consists of an interface, \texttt{seq.h}, and an
+  implementation, \texttt{seq.c}.
+
+  \section{Interface}
+  The interface includes headers, lists definitions and the \texttt{Seq}
+  data type, and declares the public functions.
+#+end_src
+#+begin_src C <<seq.h>>=
+  #ifndef SEQ
+  #define SEQ
+  // <<Interface headers>>
+  // <<Definitions>>
+  // <<Data structure>>
+  // <<Public function declarations>>
+  #endif
+#+end_src
+#+begin_src latex
+  A sequence has a name and consists of residue data of some length.
+#+end_src
+#+begin_src C <<Data structure>>=
+  typedef struct seq {
+    char *name;
+    char *data;
+    int l;
+  } Seq;
+#+end_src
+#+begin_src latex
+  New sequences are constructed and freed again.
+#+end_src
+#+begin_src C <<Public function declarations>>=
+  Seq *newSeq(char *header);
+  void freeSeq(Seq *s);
+#+end_src
+#+begin_src latex
+  Sequences are read from files either in one fell swoop, or piecemeal
+  one entry at a time. The function \texttt{getJoinedSeq} joins all
+  entries in a file and returns them as a single sequence. This is
+  useful when a genome or a chromosome is stored as a set of contigs
+  that need to be analyzed together. The name of the joined sequence is
+  the file name, minus the last extension, if present. So a genome
+  stored in \texttt{foo.fasta} is called \emph{foo}, a genome stored in
+  \texttt{foo.tag.fasta} is called \emph{foo.tag}.
+#+end_src
+#+begin_src C <<Public function declarations>>=
+  Seq *getJoinedSeq(char *file);
+#+end_src
+#+begin_src latex
+  The function \texttt{getSeq} reads the next sequence from a file. The
+  name of the sequence is the sequence header without the leading
+  \texttt{>} or the trailing newline. It returns NULL when all sequences
+  have been read.
+#+end_src
+#+begin_src C <<Public function declarations>>=
+  Seq *getSeq(FILE *fp);
+#+end_src
+#+begin_src latex
+  The FILE data type is defined in the \texttt{stdio.h} section of the
+  standard library.
+#+end_src
+#+begin_src C <<Interface headers>>=
+  #include <stdio.h>
+#+end_src
+#+begin_src latex
+  Sequences are not only read, but also written by \texttt{printSeq} in
+  lines of a particular length. If the line length $\le 0$,
+  \texttt{printSeq} uses a sensible default.
+#+end_src
+#+begin_src C <<Public function declarations>>=
+  void printSeq(FILE *fp, Seq *s, int l);
+#+end_src
+#+begin_src latex
+A good default line length is 70 characters.
+#+end_src
+#+begin_src C <<Definitions>>=
+  #define DEFAULT_LINE_LEN 70
+#+end_src
+#+begin_src latex
+  Nucleotide sequences are reverse complemented.
+#+end_src
+#+begin_src C <<Public function declarations>>=
+  Seq *revCmpSeq(Seq *s);
+#+end_src
+#+begin_src latex
+  This requires a list of nucleotides.  The sequence data is listed as
+  one or more lines of residues in IUPAC nomenclature, which includes
+  the well-known standard bases, \texttt{ACGTU}, plus the ambiguity
+  codes listed in Table~\ref{tab:nuc}.
+
+  \begin{table}[ht]
+    \caption{Ambiguity codes for nucleotides}\label{tab:nuc}
+    \begin{center}
+      \begin{tabular}{cc}
+	\begin{tabular}{cl}
+	  \hline
+	  Symbol & Meaning\\\hline
+	  \texttt{B} & \texttt{[\^{ }A]}\\
+	  \texttt{D} & \texttt{[\^{ }C]}\\
+	  \texttt{H} & \texttt{[\^{ }G]}\\
+	  \texttt{K} & \texttt{[GTU]}\\
+	  \texttt{M} & \texttt{[AC]}\\
+	  \texttt{N} & \texttt{[ACGTU]}\\\hline
+	\end{tabular}
+	&
+	\begin{tabular}{cl}
+	  \hline
+	  Symbol & Meaning\\\hline
+	  \texttt{R} & \texttt{[AG]}\\
+	  \texttt{S} & \texttt{[CG]}\\
+	  \texttt{V} & \texttt{[\^{ }TU]}\\
+	  \texttt{W} & \texttt{[ATU]}\\
+	  \texttt{Y} & \texttt{[CTU]}\\\hline
+	\end{tabular}
+      \end{tabular}
+    \end{center}
+  \end{table}
+#+end_src
+#+begin_src C <<Definitions>>=
+  #define NUC_STR "ACGTUWSMKRYBDHVNacgtuwsmkrybdhvn"
+#+end_src
+#+begin_src latex
+  Apart from the nucleotides themselves, their complement is required.
+#+end_src
+#+begin_src C <<Definitions>>=
+  #define CMP_STR "TGCAAWSKMYRVHDBNtgcaawskmyrvhdbn"
+#+end_src
+#+begin_src latex
+  Finally, sequences are concatenated.
+#+end_src
+#+begin_src C <<Public function declarations>>=
+  Seq *catSeq(Seq *s1, Seq *s2);
+#+end_src
+#+begin_src latex
+  \section{Implementation}
+  The \texttt{seq} library is implemented in a single file, which
+  consists of header includes and
+  function implementations.
+#+end_src
+#+begin_src C <<seq.c>>=
+  #include "seq.h"
+  // <<Implementation headers>>
+  // <<Function implementations>>
+#+end_src
+#+begin_src latex
+  A new sequence is generated based on its name. This might still have a
+  leading \texttt{>} and a trailing newline, both of which would need to
+  be removed.
+#+end_src
+#+begin_src C <<Function implementations>>=
+  Seq *newSeq(char *name) {
+    Seq *s = (Seq *)emalloc(sizeof(Seq));
+    //<<Clean up name>>
+    s->name = estrdup(name);
+    s->data = NULL;
+    s->l = 0;
+    return s;
+  }
+#+end_src
+#+begin_src latex
+  The functions \texttt{emalloc} and \texttt{estrdup} are defined in \texttt{error.h}.
+#+end_src
+#+begin_src C <<Implementation headers>>=
+  #include "error.h"
+#+end_src
+#+begin_src latex
+  The sequence name is cleaned up by checking its first and last
+  character and removing \texttt{>} and newline if necessary.
+#+end_src
+#+begin_src C <<Clean up name>>=
+  int l = strlen(name);
+  if (name[l - 1] == '\n')
+    name[l - 1] = '\0';
+  if (name[0] == '>')
+    name++;
+#+end_src
+#+begin_src latex
+  The function \texttt{strstr} is defined in the \texttt{string.h}
+  section of the standard library.
+#+end_src
+#+begin_src C <<Implementation headers>>=
+  #include <string.h>
+#+end_src
+#+begin_src latex
+  When freeing a sequence, its header and data field are freed
+  individually.
+#+end_src
+#+begin_src C <<Function implementations>>=
+  void freeSeq(Seq *s) {
+    free(s->data);
+    free(s->name);
+    free(s);
+  }
+#+end_src
+#+begin_src latex
+  The function \texttt{free} is part of the \texttt{stdlib.h} section
+  of the standard library.
+#+end_src
+#+begin_src C <<Implementation headers>>=
+  #include <stdlib.h>
+#+end_src
+#+begin_src latex
+  The function \texttt{getJoinedSeq} creates the name of the sequence
+  and then parses the entire file to gather the data while skipping the
+  headers. The iteration is carried out on an open data stream using the
+  library function \texttt{getline}. This allocates \texttt{len} bytes to a
+  character buffer, \texttt{line}, which is freed before the sequence is
+  returned. \texttt{getline} returns the number of characters read,
+  \texttt{nread}, and modifies \texttt{len}.
+#+end_src
+#+begin_src C <<Function implementations>>=
+  Seq *getJoinedSeq(char *fileName) {
+    // <<Generate new sequence>>
+    // <<Prepare file parsing>>
+    FILE *fp = efopen(fileName, "r");
+    while ((nread = getline(&line, &len, fp)) != -1) {
+      // <<Skip header>>
+      // <<Deal with data>>
+    }
+    fclose(fp);
+    free(line);
+    // <<Return sequence>>
+  }
+#+end_src
+#+begin_src latex
+  To generate a new sequence, the file name is transformed to a proper
+  name by removing the last file extension, if present.
+#+end_src
+#+begin_src C <<Generate new sequence>>=
+  char *p = strrchr(fileName, '.');
+  if (p)
+    p = '\0';
+  Seq *seq = newSeq(fileName);
+#+end_src
+#+begin_src latex
+  The function \texttt{strrchr} is defined in \texttt{string.h}, which
+  is already included. The three variables \texttt{line},
+  \texttt{nread}, and \texttt{len} needed by \texttt{getline} are
+  declared and initialized. In addition, the variable \texttt{maxLen} is
+  introduced for tracking the maximum number of characters the sequence
+  can hold.
+#+end_src
+#+begin_src C <<Prepare file parsing>>=
+  char *line = NULL;
+  ssize_t nread;
+  size_t len = 0, maxLen = 0;
+#+end_src
+#+begin_src latex
+  If a header is detected, the \texttt{while} loop just skips ahead.
+#+end_src
+#+begin_src C <<Skip header>>=
+  if (line[0] == '>')
+    continue;
+#+end_src
+#+begin_src latex
+  When dealing with the sequence data, two things need special
+  attention, newline characters and memory allocation.  A line of
+  sequence data may by terminated by a newline character, which is
+  discarded when copying the data to the new sequence.
+
+  The space copied into needs to grow in a sensible fashion. As already
+  mentioned, the number of lines in a sequence file is potentially very
+  large, so re-allocation for every one of them is best avoided. This is
+  achieved by making the data capacity always twice as large as the
+  number of residues read so far.
+#+end_src
+#+begin_src C <<Deal with data>>=
+  if (line[nread - 1] == '\n')
+    nread--;
+  if (seq->l + nread > maxLen) {
+    maxLen = 2 * (seq->l + nread);
+    seq->data = erealloc(seq->data, maxLen);
+  }
+  for (int i = 0; i < nread; i++)
+    seq->data[seq->l++] = line[i];
+#+end_src
+#+begin_src latex
+  This memory allocation scheme in all likelihood leads to excess
+  capacity, which is freed before the sequence is returned with
+  \texttt{$\backslash$0} terminating its data string.
+#+end_src
+#+begin_src C <<Return sequence>>=
+  seq->data = erealloc(seq->data, seq->l + 1);
+  seq->data[seq->l] = '\0';
+  return seq;
+#+end_src
+#+begin_src latex
+  As an alternative to joining all contigs in a file, sequences can be
+  read entry by entry. In that case headers become sequence
+  delimiters. Apart from the very first header, which just signals the
+  beginning of the next sequence, all later headers additionally signal
+  the end of the previous sequence. In the next call, the last line read
+  in the previous call may then serve as header. So at the beginning,
+  the function checks whether a header is left over from the previous
+  call. It then iterates across the next sequence and saves the data. At
+  the end the sequence is returned.
+#+end_src
+#+begin_src C <<Function implementations>>=
+  Seq *getSeq(FILE *fp) {
+    Seq *seq = NULL;
+    // <<Prepare sequence parsing>>
+    // <<Header left over from previous call?>>
+    while ((nread = getline(&line, &len, fp)) != -1) {
+      if (line[0] == '>') {
+	// <<Deal with header>>
+      } else {
+	// <<Deal with data>>
+      }
+    }
+    // <<Return sequence>>
+  }
+#+end_src
+#+begin_src latex
+  Preparing to parse a sequence is similar to preparing to parse an
+  entire file, except that when parsing a sequence the data read between
+  calls needs to be preserved, so the line buffer and its length are
+  declared \texttt{static}.
+#+end_src
+#+begin_src C <<Prepare sequence parsing>>=
+  static char *line = NULL;
+  ssize_t nread;
+  static size_t len = 0;
+  size_t maxLen = 0;
+#+end_src
+#+begin_src latex
+  If a line is left over from the previous call, this may be a header,
+  in which case it starts a new sequence. If the left over line is not a
+  header, the end of the file was reached in the previous call, which is
+  indicated by returning NULL. This is also the moment for resetting the
+  function by freeing and nullifyling \texttt{line}, and setting its
+  length to 0. \texttt{line} and \texttt{len} are static variables,
+  which, if left unchanged, would lead to a memory leak after the last
+  call to \texttt{getSeq}.
+#+end_src
+#+begin_src C <<Header left over from previous call?>>=
+  if (line) {
+    if (line[0] == '>') {
+      seq = newSeq(line);
+    } else {
+      free(line);
+      line = NULL;
+      len = 0;
+      return NULL;
+    }
+  }
+#+end_src
+#+begin_src latex
+  If a new header is encountered, it might open the sequence to be read,
+  or close the sequence just read. These two cases can be distinguished
+  by asking whether the sequence has already been instantiated or
+  not. If it has been instantiated, the header closes the sequence,
+  which is then returned. If it has not been instantiated, this is the
+  moment to do so.
+#+end_src
+#+begin_src C <<Deal with header>>=
+  if (seq) {
+    <<Return sequence>>
+  } else
+    seq = newSeq(line);
+#+end_src
+#+begin_src latex
+  A sequence is printed to a file in three steps: First, the header is
+  printed. Then the sequence data is printed in lines of length
+  \texttt{l}, and finally the last line may still need a terminating
+  newline.
+#+end_src
+#+begin_src C <<Function implementations>>=
+  void printSeq(FILE *fp, Seq *s, int l) {
+    // <<Print header>>
+    // <<Print data>>
+    // <<Print newline?>>
+  }
+#+end_src
+#+begin_src latex
+  The header is printed as the sequence name preceded by the header
+  marker \texttt{>} and followed by a newline character.
+#+end_src
+#+begin_src C <<Print header>>=
+  fprintf(fp, ">%s\n", s->name);
+#+end_src
+#+begin_src latex
+  The line length for the data is \texttt{l} if $\texttt{l} > 0$ or
+  \texttt{DEFAULT\_LINE\_LEN} otherwise. The line length is achieved by
+  applying the modulo function, \texttt{\%}, to the number of residues
+  printed so far. Whenever this is zero, a newline character is due to
+  be printed.
+#+end_src
+#+begin_src C <<Print data>>=
+  if (l <= 0)
+    l = DEFAULT_LINE_LEN;
+  for (int i = 0; i < s->l; i++) {
+    fprintf(fp, "%c", s->data[i]);
+    if ((i + 1) % l == 0)
+      fprintf(fp, "\n");
+  }
+#+end_src
+#+begin_src latex
+  The last line still needs to be terminated by a newline, unless it is
+  $\texttt{l}$ residues long.
+#+end_src
+#+begin_src C <<Print newline?>>=
+  if (s->l % l)
+    fprintf(fp, "\n");
+#+end_src
+#+begin_src latex
+  To reverse-complement a sequence, a new sequence is created
+  first. Then the old sequence is reversed before being complemented.
+#+end_src
+#+begin_src C <<Function implementations>>=
+  Seq *revCmpSeq(Seq *s) {
+    Seq *n;
+    // <<Create new sequence>>
+    // <<Revert>>
+    // <<Complement>>
+    return n;
+  }
+#+end_src
+#+begin_src latex
+  A new sequence is created with \texttt{newSeq}. However, to mark it as
+  the reverse complement of the original, its name is extended by the
+  seven characters \texttt{\_revCmp}.
+#+end_src
+#+begin_src C <<Create new sequence>>=
+  n = newSeq(s->name);
+  n->name = erealloc(n->name, strlen(n->name) + 8);
+  strncat(n->name, "_revCmp", 7);
+#+end_src
+#+begin_src latex
+  Reverting a sequence requires space for the new sequence. Then a
+  \texttt{for} loop traverses the old sequence from right to left while
+  the new sequence is being filled up from left to right.
+#+end_src
+#+begin_src C <<Revert>>=
+  n->data = emalloc(s->l);
+  for (int i = s->l - 1; i >= 0; i--)
+    n->data[n->l++] = s->data[i];
+#+end_src
+#+begin_src latex
+  Sequence complementation is based on a dictionary for looking up the
+  pairing nucleotide. So complementation is done in two steps,
+  construction and application of the dictionary.
+#+end_src
+#+begin_src C <<Complement>>=
+  // <<Construct dictionary>>
+  // <<Apply dictionary>>
+#+end_src
+#+begin_src latex
+  The dictionary caters for every possible character. However, only
+  nucleotides yield a positive result, \emph{viz.} their complement.
+#+end_src
+#+begin_src C <<Construct dictionary>>=
+  char dic[UCHAR_MAX];
+  char *nuc = NUC_STR;
+  char *cmp = CMP_STR;
+  for (int i = 0; i < UCHAR_MAX; i++)
+    dic[i] = 0;
+  for (int i = 0; i < strlen(nuc); i++)
+    dic[(int)nuc[i]] = cmp[i];
+#+end_src
+#+begin_src latex
+  The constant \texttt{UCHAR\_MAX} is defined in \texttt{limits.h}.
+#+end_src
+#+begin_src C <<Implementation headers>>=
+  #include <limits.h>
+#+end_src
+#+begin_src latex
+  When applying the dictionary, it is an error to attempt to complement a
+  character that is not part of the IUPAC nomenclature.
+#+end_src
+#+begin_src C <<Apply dictionary>>=
+  char c;
+  for (int i = 0; i < n->l; i++)
+    if ((c = dic[(int)n->data[i]]) != 0)
+      n->data[i] = c;
+    else
+      error("can't complement %c\n", c);
+#+end_src
+#+begin_src latex
+  To concatenate two sequences, a third sequence is created whose name
+  is the concatenation of the parents' names. So is its sequence.
+#+end_src
+#+begin_src C <<Function implementations>>=
+  Seq *catSeq(Seq *s1, Seq *s2) {
+    char *newName;
+    // <<Construct new name>>
+    Seq *n = newSeq(newName);
+    free(newName);
+    // <<Concatenate data>>
+    return n;
+  }
+#+end_src
+#+begin_src latex
+  The new name consists of the two parent names separated by an
+  underscore and terminated by the null character.
+#+end_src
+#+begin_src C <<Construct new name>>=
+  newName = emalloc(strlen(s1->name) + strlen(s2->name) + 2);
+  newName[0] = '\0';
+  strcat(newName, s1->name);
+  strcat(newName, "_");
+  strcat(newName, s2->name);
+#+end_src
+#+begin_src latex
+  The concatenated data first gets space for the residues and the
+  terminal null. The space is then filled by looping across the parents'
+  data.
+#+end_src
+#+begin_src C <<Concatenate data>>=
+  n->data = emalloc(s1->l + s2->l + 1);
+  for (int i = 0; i < s1->l; i++)
+    n->data[n->l++] = s1->data[i];
+  for (int i = 0; i < s2->l; i++)
+    n->data[n->l++] = s2->data[i];
+  n->data[n->l] = '\0';
+  return n;
+#+end_src
+#+begin_src latex
+  This concludes the implementation of the \texttt{seq} library. Now
+  it's time to test it.
+
+  \section{Testing}
+  There are seven functions in \texttt{seq}:
+  \begin{enumerate}
+  \item \texttt{newSeq}
+  \item \texttt{freeSeq}
+  \item \texttt{getJoinedSeq}
+  \item \texttt{getSeq}
+  \item \texttt{printSeq}
+  \item \texttt{revCmpSeq}
+  \item \texttt{catSeq}
+  \end{enumerate}
+  The function \texttt{newSeq} is used by \texttt{getJoinedSeq},
+  \texttt{getSeq}, \texttt{revCmpSeq}, and \texttt{catSeq}; so it
+  doesn't require a separate test. Similarly, \texttt{freeSeq} is
+  tested implicitly by running the test program under
+  \texttt{valgrind} and looking for memory leaks. The results of test
+  runs need to be printed, so \texttt{printSeq} is also part of all
+  other other tests. This leaves four functions to be tested
+  individually: \texttt{getJoinedSeq}, \texttt{getSeq},
+  \texttt{revCmpSeq}, and \texttt{catSeq}.
+
+  The \texttt{main} function of the test program has two components, one
+  based on a small data file containing two sequences, each 100 bp
+  long. The other test component runs on potentially massive sequences
+  read from the standard input.
+#+end_src
+#+begin_src C <<testSeq.c>>=
+  #include "seq.h"
+  //<<Test includes>>
+  int main(int argc, char **argv) {
+    //<<Communicate with user>>
+    if (argc == 2) {
+      //<<Tests on small data set>>
+    } else if (argc == 1) {
+      //<<Tests on large data set>>
+    }
+  }
+#+end_src
+#+begin_src latex
+  If the user submits \texttt{-h}, a help message is printed and the
+  program exits.
+#+end_src
+#+begin_src C <<Communicate with user>>=
+  if (argc > 1 && strcmp(argv[1], "-h") == 0) {
+    printf("Usage a: testSeq ../data/test.fasta\n");
+    printf("Usage b: testSeq < largeFoo.fasta\n");
+    exit(0);
+  }
+#+end_src
+#+begin_src latex
+  The function \texttt{strcmp} is defined in \texttt{string.h}, the
+  function \texttt{printf} in \texttt{stdio.h}, and the function
+  \texttt{exit} in \texttt{stdlib.h}.
+#+end_src
+#+begin_src C <<Test includes>>=
+  #include <string.h>
+  #include <stdio.h>
+  #include <stdlib.h>
+#+end_src
+#+begin_src latex
+  The tests on the small data set probe each function in turn. As they
+  all handle at least one sequence, a corresponding variable is declared
+  right at the start.
+#+end_src
+#+begin_src C <<Tests on small data set>>=
+  Seq *s;
+  //<<Small test of getJoinedSeq>>
+  //<<Small test of getSeq>>
+  //<<Small test of revCmpSeq>>
+  //<<Small test of catSeq>>
+#+end_src
+#+begin_src latex
+  To test \texttt{getJoinedSeq}, the input file is read and printed
+  twice, once with the default line length, and once with line length 50
+  to check that newline characters are properly printed even if the last
+  residues filled an entire row.
+#+end_src
+#+begin_src C <<Small test of getJoinedSeq>>=
+  printf("*** Testing getJoinedSeq ***\n");
+  s = getJoinedSeq(argv[1]);
+  printSeq(stdout, s, -1);
+  printSeq(stdout, s, 50);
+  freeSeq(s);
+#+end_src
+#+begin_src latex
+  The function \texttt{getSeq} is tested by reading each sequence in the
+  input file in turn and printing it.
+#+end_src
+#+begin_src C <<Small test of getSeq>>=
+  printf("*** Testing getSeq ***\n");
+  FILE *fp = efopen(argv[1], "r");
+  while ((s = getSeq(fp)) != NULL) {
+    printSeq(stdout, s, -1);
+    freeSeq(s);
+  }
+  fclose(fp);
+#+end_src
+#+begin_src latex
+  The function \texttt{efopen} is defined in \texttt{error.h}.
+#+end_src
+#+begin_src C <<Test includes>>=
+  #include "error.h"
+#+end_src
+#+begin_src latex
+  Reverse complementation is tested by reading each sequence in turn and
+  printing its reverse complement.
+#+end_src
+#+begin_src C <<Small test of revCmpSeq>>=
+  printf("*** Testing revCmpSeq ***\n");
+  fp = efopen(argv[1], "r");
+  while ((s = getSeq(fp)) != NULL) {
+    Seq *r = revCmpSeq(s);
+    printSeq(stdout, r, -1);
+    freeSeq(s);
+    freeSeq(r);
+  }
+  fclose(fp);
+#+end_src
+#+begin_src latex
+  Sequence concatenation is tested by reading the two sequences in the
+  input file and concatenating them. At the end the memory invested is
+  freed again.
+#+end_src
+#+begin_src C <<Small test of catSeq>>=
+  printf("*** Testing catSeq ***\n");
+  fp = efopen(argv[1], "r");
+  Seq **arr = (Seq **)emalloc(2 * sizeof(Seq *));
+  int i = 0;
+  while ((s = getSeq(fp)) != NULL)
+    arr[i++] = s;
+  s = catSeq(arr[0], arr[1]);
+  printSeq(stdout, s, -1);
+  // <<Free memory for testing catSeq>>
+#+end_src
+#+begin_src latex
+  Testing \texttt{catSeq} allocated memory for the concatenated
+  sequence, \texttt{s}, the entries in \texttt{arr}, \texttt{arr}
+  itself, and the file opened. 
+#+end_src
+#+begin_src C <<Free memory for testing catSeq>>=
+  freeSeq(s);
+  freeSeq(arr[0]);
+  freeSeq(arr[1]);
+  free(arr);
+  fclose(fp);
+#+end_src
+#+begin_src latex
+  The most critical aspect of handling long sequences is the time it
+  takes to read them from a stream. In this part of the test the data is
+  read from the standard input stream, which can't be rewound, so only
+  \texttt{getJoinedSeq} or \texttt{getSeq} can get timed; I chose
+  \texttt{getSeq}.
+#+end_src
+#+begin_src C <<Tests on large data set>>=
+  printf("Timing getSeq\n");
+  clock_t t = clock();
+  Seq *s;
+  while ((s = getSeq(stdin)) != NULL)
+    freeSeq(s);
+  double x = (double)(clock() - t) / CLOCKS_PER_SEC;
+  printf("Took %.3fs\n", x);
+#+end_src
+#+begin_src latex
+  Timing is defined in the \texttt{time.h} section of the standard library.
+#+end_src
+#+begin_src C <<Test includes>>=
+  #include <time.h>
+#+end_src
+#+begin_src latex
+  This concludes the tests, the library is ready to be used.
+  \section{List of code chunks}
+    \nowebchunks
+  \section{Index}
+  \nowebindex
+#+end_src

@@ -1,8 +1,6 @@
 all:
 	make -C common
 	make -C src
-	mkdir -p build
-	cp src/seq build
 test:
 	@make -s -C src test
 clean:

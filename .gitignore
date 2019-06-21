@@ -7,4 +7,11 @@ doc/*.log
 doc/*.pdf
 doc/date.tex
 doc/version.tex
+doc/seq.bbl
+doc/seq.blg
+doc/text.tex
 src/seq
+src/testSeq
+src/testSeq.c
+src/seq.c
+src/seq.h
