@@ -167,6 +167,20 @@ A good default line length is 70 characters.
   #define CMP_STR "TGCAAWSKMYRVHDBNtgcaawskmyrvhdbn"
 #+end_src
 #+begin_src latex
+  The GC-content of a sequence is its number of \texttt{G} or \texttt{C}
+  residues per nucleotide.
+#+end_src
+#+begin_src C <<Public function declarations>>=
+  double gcSeq(Seq *s);
+#+end_src
+#+begin_src latex
+  This requires a DNA string and a GC string.
+#+end_src
+#+begin_src C <<Definitions>>=
+  #define DNA_STR "ACGTacgt"
+  #define GC_STR "GCgc"
+#+end_src
+#+begin_src latex
   Finally, sequences are concatenated.
 #+end_src
 #+begin_src C <<Public function declarations>>=
@@ -517,6 +531,53 @@ A good default line length is 70 characters.
       error("can't complement %c\n", c);
 #+end_src
 #+begin_src latex
+  The GC-content of a sequence is computed by counting the number of
+  \texttt{[GCgc]} and dividing it by the number of
+  \texttt{[ACGTacgt]}. For this purpose two dictionaries are
+  constructed one for DNA, the other for GC, before counting.
+#+end_src
+#+begin_src C <<Function implementations>>=
+  double gcSeq(Seq *s) {
+    double g = 0;
+    long l = 0;
+    //<<Construct DNA dictionary>>
+    //<<Construct GC dictionary>>
+    //<<Count GC and DNA>>
+    return g / l;
+  }
+#+end_src
+#+begin_src latex
+  The DNA dictionary handles the four bases.
+#+end_src
+#+begin_src C <<Construct DNA dictionary>>=
+  char dnad[UCHAR_MAX];
+  char *dna = DNA_STR;
+  for (int i = 0; i < UCHAR_MAX; i++)
+    dnad[i] = 0;
+  for (int i = 0; i < strlen(DNA_STR); i++)
+    dnad[(int)dna[i]] = 1;
+#+end_src
+#+begin_src latex
+  Similarly, the GC dictionary is designed to handle these two residues.
+#+end_src
+#+begin_src C <<Construct GC dictionary>>=
+  char gcd[UCHAR_MAX];
+  char *gc = GC_STR;
+  for (int i = 0; i < UCHAR_MAX; i++)
+    gcd[i] = 0;
+  for (int i = 0; i < strlen(GC_STR); i++)
+    gcd[(int)gc[i]] = 1;
+#+end_src
+#+begin_src latex
+  Given the dictionaries for DNA and GC, counting is simple.
+#+end_src
+#+begin_src C <<Count GC and DNA>>=
+  for (int i = 0; i < s->l; i++) {
+    g += gcd[(int)s->data[i]];
+    l += dnad[(int)s->data[i]];
+  }
+#+end_src
+#+begin_src latex
   To concatenate two sequences, a third sequence is created whose name
   is the concatenation of the parents' names. So is its sequence.
 #+end_src
@@ -560,7 +621,7 @@ A good default line length is 70 characters.
   it's time to test it.
 
   \section{Testing}
-  There are seven functions in \texttt{seq}:
+  There are eight functions in \texttt{seq}:
   \begin{enumerate}
   \item \texttt{newSeq}
   \item \texttt{freeSeq}
@@ -568,6 +629,7 @@ A good default line length is 70 characters.
   \item \texttt{getSeq}
   \item \texttt{printSeq}
   \item \texttt{revCmpSeq}
+  \item \texttt{gcSeq}
   \item \texttt{catSeq}
   \end{enumerate}
   The function \texttt{newSeq} is used by \texttt{getJoinedSeq},
@@ -576,9 +638,9 @@ A good default line length is 70 characters.
   tested implicitly by running the test program under
   \texttt{valgrind} and looking for memory leaks. The results of test
   runs need to be printed, so \texttt{printSeq} is also part of all
-  other other tests. This leaves four functions to be tested
+  other other tests. This leaves five functions to be tested
   individually: \texttt{getJoinedSeq}, \texttt{getSeq},
-  \texttt{revCmpSeq}, and \texttt{catSeq}.
+  \texttt{revCmpSeq}, \texttt{gcSeq}, and \texttt{catSeq}.
 
   The \texttt{main} function of the test program has two components, one
   based on a small data file containing two sequences, each 100 bp
@@ -628,6 +690,7 @@ A good default line length is 70 characters.
   //<<Small test of getJoinedSeq>>
   //<<Small test of getSeq>>
   //<<Small test of revCmpSeq>>
+  //<<Small test of gcSeq>>
   //<<Small test of catSeq>>
 #+end_src
 #+begin_src latex
@@ -674,6 +737,19 @@ A good default line length is 70 characters.
     printSeq(stdout, r, -1);
     freeSeq(s);
     freeSeq(r);
+  }
+  fclose(fp);
+#+end_src
+#+begin_src latex
+  To test the computation of the GC content, the input sequences are
+  read and the GC content of each one is printed.
+#+end_src
+#+begin_src C <<Small test of gcSeq>>=
+  printf("*** Testing gcSeq ***\n");
+  fp = efopen(argv[1], "r");
+  while ((s = getSeq(fp)) != NULL) {
+    printf("%.3f\n", gcSeq(s));
+    freeSeq(s);
   }
   fclose(fp);
 #+end_src
