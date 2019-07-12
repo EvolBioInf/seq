@@ -46,21 +46,21 @@
 
   \section{Interface}
   The interface includes headers, lists definitions and the \texttt{Seq}
-  data type, and declares the public functions.
+  and \texttt{SeqArr} data types, and declares the public functions.
 #+end_src
 #+begin_src C <<seq.h>>=
   #ifndef SEQ
   #define SEQ
   // <<Interface headers>>
   // <<Definitions>>
-  // <<Data structure>>
+  // <<Data structures>>
   // <<Public function declarations>>
   #endif
 #+end_src
 #+begin_src latex
   A sequence has a name and consists of residue data of some length.
 #+end_src
-#+begin_src C <<Data structure>>=
+#+begin_src C <<Data structures>>=
   typedef struct seq {
     char *name;
     char *data;
@@ -68,11 +68,28 @@
   } Seq;
 #+end_src
 #+begin_src latex
+  A collection of sequences is a sequence array.
+#+end_src
+#+begin_src C <<Data structures>>=
+  typedef struct seqArr {
+    Seq **arr;
+    int n;
+  } SeqArr;
+#+end_src
+#+begin_src latex
   New sequences are constructed and freed again.
 #+end_src
 #+begin_src C <<Public function declarations>>=
   Seq *newSeq(char *header);
   void freeSeq(Seq *s);
+#+end_src
+#+begin_src latex
+  Sequence arrays are constructed, added to, and freed again.
+#+end_src
+#+begin_src C <<Public function declarations>>=
+  SeqArr *newSeqArr();
+  void freeSeqArr(SeqArr *sa);
+  void seqArrAdd(SeqArr *sa, Seq *s);
 #+end_src
 #+begin_src latex
   Sequences are read from files either in one fell swoop, or piecemeal
@@ -105,8 +122,8 @@
 #+end_src
 #+begin_src latex
   Sequences are not only read, but also written by \texttt{printSeq} in
-  lines of a particular length. If the line length $\le 0$,
-  \texttt{printSeq} uses a sensible default.
+  lines of a particular length. If the line length passed is zero or
+  less, \texttt{printSeq} uses a sensible default.
 #+end_src
 #+begin_src C <<Public function declarations>>=
   void printSeq(FILE *fp, Seq *s, int l);
@@ -161,13 +178,15 @@ A good default line length is 70 characters.
   #define NUC_STR "ACGTUWSMKRYBDHVNacgtuwsmkrybdhvn"
 #+end_src
 #+begin_src latex
-  Apart from the nucleotides themselves, their complement is required.
+  Apart from the nucleotides themselves, their complement is
+  required. This is given in the same order as the nucleotides
+  themselves.
 #+end_src
 #+begin_src C <<Definitions>>=
   #define CMP_STR "TGCAAWSKMYRVHDBNtgcaawskmyrvhdbn"
 #+end_src
 #+begin_src latex
-  The GC-content of a sequence is its number of \texttt{G} or \texttt{C}
+  The GC-content of a sequence is the number of \texttt{G} or \texttt{C}
   residues per nucleotide.
 #+end_src
 #+begin_src C <<Public function declarations>>=
@@ -190,19 +209,18 @@ A good default line length is 70 characters.
   \section{Implementation}
   The \texttt{seq} library is implemented in a single file, which
   consists of header includes and
-  function implementations.
+  function definitions.
 #+end_src
 #+begin_src C <<seq.c>>=
   #include "seq.h"
   // <<Implementation headers>>
-  // <<Function implementations>>
+  // <<Function definitions>>
 #+end_src
 #+begin_src latex
   A new sequence is generated based on its name. This might still have a
-  leading \texttt{>} and a trailing newline, both of which would need to
-  be removed.
+  leading \texttt{>} and a trailing newline, both of which are removed.
 #+end_src
-#+begin_src C <<Function implementations>>=
+#+begin_src C <<Function definitions>>=
   Seq *newSeq(char *name) {
     Seq *s = (Seq *)emalloc(sizeof(Seq));
     //<<Clean up name>>
@@ -213,7 +231,7 @@ A good default line length is 70 characters.
   }
 #+end_src
 #+begin_src latex
-  The functions \texttt{emalloc} and \texttt{estrdup} are defined in \texttt{error.h}.
+  The functions \texttt{emalloc} and \texttt{estrdup} are declared in \texttt{error.h}.
 #+end_src
 #+begin_src C <<Implementation headers>>=
   #include "error.h"
@@ -230,8 +248,7 @@ A good default line length is 70 characters.
     name++;
 #+end_src
 #+begin_src latex
-  The function \texttt{strstr} is defined in the \texttt{string.h}
-  section of the standard library.
+  The function \texttt{strstr} is declared in \texttt{string.h}.
 #+end_src
 #+begin_src C <<Implementation headers>>=
   #include <string.h>
@@ -240,7 +257,7 @@ A good default line length is 70 characters.
   When freeing a sequence, its header and data field are freed
   individually.
 #+end_src
-#+begin_src C <<Function implementations>>=
+#+begin_src C <<Function definitions>>=
   void freeSeq(Seq *s) {
     free(s->data);
     free(s->name);
@@ -248,11 +265,44 @@ A good default line length is 70 characters.
   }
 #+end_src
 #+begin_src latex
-  The function \texttt{free} is part of the \texttt{stdlib.h} section
-  of the standard library.
+  The function \texttt{free} is declared in \texttt{stdlib.h}.
 #+end_src
 #+begin_src C <<Implementation headers>>=
   #include <stdlib.h>
+#+end_src
+#+begin_src latex
+  A empty sequence array is created.
+#+end_src
+#+begin_src C <<Function definitions>>=
+  SeqArr *newSeqArr() {
+    SeqArr *sa = emalloc(sizeof(SeqArr));
+    sa->arr = NULL;
+    sa->n = 0;
+    return sa;
+  }
+#+end_src
+#+begin_src latex
+  Sequence arrays are freed by freeing each individual sequence before
+  freeing the sequence array itself.
+#+end_src
+#+begin_src C <<Function definitions>>=
+  void freeSeqArr(SeqArr *sa) {
+    for (int i = 0; i < sa->n; i++)
+      if (sa->arr[i])
+	freeSeq(sa->arr[i]);
+    free(sa->arr);
+    free(sa);
+  }
+#+end_src
+#+begin_src latex
+  When adding a sequence to a sequence array, the required extra memory
+  is allocated first.
+#+end_src
+#+begin_src C <<Function definitions>>=
+  void seqArrAdd(SeqArr *sa, Seq *s) {
+    sa->arr = (Seq **)erealloc(sa->arr, (sa->n + 1) * sizeof(Seq *));
+    sa->arr[sa->n++] = s;
+  }
 #+end_src
 #+begin_src latex
   The function \texttt{getJoinedSeq} creates the name of the sequence
@@ -263,7 +313,7 @@ A good default line length is 70 characters.
   returned. \texttt{getline} returns the number of characters read,
   \texttt{nread}, and modifies \texttt{len}.
 #+end_src
-#+begin_src C <<Function implementations>>=
+#+begin_src C <<Function definitions>>=
   Seq *getJoinedSeq(char *fileName) {
     // <<Generate new sequence>>
     // <<Prepare file parsing>>
@@ -288,11 +338,11 @@ A good default line length is 70 characters.
   Seq *seq = newSeq(fileName);
 #+end_src
 #+begin_src latex
-  The function \texttt{strrchr} is defined in \texttt{string.h}, which
+  The function \texttt{strrchr} is declared in \texttt{string.h}, which
   is already included. The three variables \texttt{line},
   \texttt{nread}, and \texttt{len} needed by \texttt{getline} are
   declared and initialized. In addition, the variable \texttt{maxLen} is
-  introduced for tracking the maximum number of characters the sequence
+  declared for tracking the maximum number of characters the sequence
   can hold.
 #+end_src
 #+begin_src C <<Prepare file parsing>>=
@@ -301,14 +351,14 @@ A good default line length is 70 characters.
   size_t len = 0, maxLen = 0;
 #+end_src
 #+begin_src latex
-  If a header is detected, the \texttt{while} loop just skips ahead.
+  If a header is detected, the \texttt{while} loop skips ahead.
 #+end_src
 #+begin_src C <<Skip header>>=
   if (line[0] == '>')
     continue;
 #+end_src
 #+begin_src latex
-  When dealing with the sequence data, two things need special
+  When dealing with the sequence data, two things require special
   attention, newline characters and memory allocation.  A line of
   sequence data may by terminated by a newline character, which is
   discarded when copying the data to the new sequence.
@@ -330,9 +380,9 @@ A good default line length is 70 characters.
     seq->data[seq->l++] = line[i];
 #+end_src
 #+begin_src latex
-  This memory allocation scheme in all likelihood leads to excess
-  capacity, which is freed before the sequence is returned with
-  \texttt{$\backslash$0} terminating its data string.
+  This strategy in all likelihood leads to the allocation of excess
+  memory capacity, which is freed before the sequence is returned with
+  the customary null character in its last position.
 #+end_src
 #+begin_src C <<Return sequence>>=
   seq->data = erealloc(seq->data, seq->l + 1);
@@ -350,7 +400,7 @@ A good default line length is 70 characters.
   call. It then iterates across the next sequence and saves the data. At
   the end the sequence is returned.
 #+end_src
-#+begin_src C <<Function implementations>>=
+#+begin_src C <<Function definitions>>=
   Seq *getSeq(FILE *fp) {
     Seq *seq = NULL;
     // <<Prepare sequence parsing>>
@@ -419,7 +469,7 @@ A good default line length is 70 characters.
   \texttt{l}, and finally the last line may still need a terminating
   newline.
 #+end_src
-#+begin_src C <<Function implementations>>=
+#+begin_src C <<Function definitions>>=
   void printSeq(FILE *fp, Seq *s, int l) {
     // <<Print header>>
     // <<Print data>>
@@ -461,7 +511,7 @@ A good default line length is 70 characters.
   To reverse-complement a sequence, a new sequence is created
   first. Then the old sequence is reversed before being complemented.
 #+end_src
-#+begin_src C <<Function implementations>>=
+#+begin_src C <<Function definitions>>=
   Seq *revCmpSeq(Seq *s) {
     Seq *n;
     // <<Create new sequence>>
@@ -534,9 +584,9 @@ A good default line length is 70 characters.
   The GC-content of a sequence is computed by counting the number of
   \texttt{[GCgc]} and dividing it by the number of
   \texttt{[ACGTacgt]}. For this purpose two dictionaries are
-  constructed one for DNA, the other for GC, before counting.
+  constructed, one for DNA, the other for GC, before counting.
 #+end_src
-#+begin_src C <<Function implementations>>=
+#+begin_src C <<Function definitions>>=
   double gcSeq(Seq *s) {
     double g = 0;
     long l = 0;
@@ -579,9 +629,9 @@ A good default line length is 70 characters.
 #+end_src
 #+begin_src latex
   To concatenate two sequences, a third sequence is created whose name
-  is the concatenation of the parents' names. So is its sequence.
+  is the concatenation of the parents' names.
 #+end_src
-#+begin_src C <<Function implementations>>=
+#+begin_src C <<Function definitions>>=
   Seq *catSeq(Seq *s1, Seq *s2) {
     char *newName;
     // <<Construct new name>>
@@ -621,10 +671,13 @@ A good default line length is 70 characters.
   it's time to test it.
 
   \section{Testing}
-  There are eight functions in \texttt{seq}:
+  There are eleven functions in \texttt{seq}:
   \begin{enumerate}
   \item \texttt{newSeq}
   \item \texttt{freeSeq}
+  \item \texttt{newSeqArr}
+  \item \texttt{freeSeqArr}
+  \item \texttt{seqArrAdd}
   \item \texttt{getJoinedSeq}
   \item \texttt{getSeq}
   \item \texttt{printSeq}
@@ -634,11 +687,13 @@ A good default line length is 70 characters.
   \end{enumerate}
   The function \texttt{newSeq} is used by \texttt{getJoinedSeq},
   \texttt{getSeq}, \texttt{revCmpSeq}, and \texttt{catSeq}; so it
-  doesn't require a separate test. Similarly, \texttt{freeSeq} is
-  tested implicitly by running the test program under
-  \texttt{valgrind} and looking for memory leaks. The results of test
-  runs need to be printed, so \texttt{printSeq} is also part of all
-  other other tests. This leaves five functions to be tested
+  doesn't require a separate test. Similarly, \texttt{freeSeq} is tested
+  implicitly by running the test program under \texttt{valgrind} and
+  looking for memory leaks. The results of test runs need to be printed,
+  so \texttt{printSeq} is also part of all other other tests. Testing
+  \texttt{catSeq} involves handling two sequences, for which the three
+  sequence array functions \texttt{newSeqArr}, \texttt{freeSeqArr}, and
+  \texttt{freeSeqArr} are used. This leaves five functions to be tested
   individually: \texttt{getJoinedSeq}, \texttt{getSeq},
   \texttt{revCmpSeq}, \texttt{gcSeq}, and \texttt{catSeq}.
 
@@ -761,25 +816,14 @@ A good default line length is 70 characters.
 #+begin_src C <<Small test of catSeq>>=
   printf("*** Testing catSeq ***\n");
   fp = efopen(argv[1], "r");
-  Seq **arr = (Seq **)emalloc(2 * sizeof(Seq *));
-  int i = 0;
+  SeqArr *sa = newSeqArr();
   while ((s = getSeq(fp)) != NULL)
-    arr[i++] = s;
-  s = catSeq(arr[0], arr[1]);
-  printSeq(stdout, s, -1);
-  // <<Free memory for testing catSeq>>
-#+end_src
-#+begin_src latex
-  Testing \texttt{catSeq} allocated memory for the concatenated
-  sequence, \texttt{s}, the entries in \texttt{arr}, \texttt{arr}
-  itself, and the file opened. 
-#+end_src
-#+begin_src C <<Free memory for testing catSeq>>=
-  freeSeq(s);
-  freeSeq(arr[0]);
-  freeSeq(arr[1]);
-  free(arr);
+    seqArrAdd(sa, s);
   fclose(fp);
+  s = catSeq(sa->arr[0], sa->arr[1]);
+  printSeq(stdout, s, -1);
+  freeSeqArr(sa);
+  freeSeq(s);
 #+end_src
 #+begin_src latex
   The most critical aspect of handling long sequences is the time it
@@ -807,6 +851,4 @@ A good default line length is 70 characters.
   This concludes the tests, the library is ready to be used.
   \section{List of code chunks}
     \nowebchunks
-  \section{Index}
-  \nowebindex
 #+end_src
