@@ -135,6 +135,13 @@ A good default line length is 70 characters.
   #define DEFAULT_LINE_LEN 70
 #+end_src
 #+begin_src latex
+  To decouple printing the header, \texttt{printSeqData} just prints the
+  sequence data.
+#+end_src
+#+begin_src C <<Public function declarations>>=
+  void printSeqData(FILE *fp, Seq *s, int l);
+#+end_src
+#+begin_src latex
   Nucleotide sequences are reverse complemented.
 #+end_src
 #+begin_src C <<Public function declarations>>=
@@ -464,35 +471,35 @@ A good default line length is 70 characters.
     seq = newSeq(line);
 #+end_src
 #+begin_src latex
-  A sequence is printed to a file in three steps: First, the header is
-  printed. Then the sequence data is printed in lines of length
-  \texttt{l}, and finally the last line may still need a terminating
-  newline.
+  A sequence is printed in two parts, first the header, then the data
+  using the public function \texttt{printSeqData}.
 #+end_src
 #+begin_src C <<Function definitions>>=
   void printSeq(FILE *fp, Seq *s, int l) {
-    // <<Print header>>
-    // <<Print data>>
-    // <<Print newline?>>
+    fprintf(fp, ">%s\n", s->name);
+    printSeqData(fp, s, l);
   }
 #+end_src
 #+begin_src latex
-  The header is printed as the sequence name preceded by the header
-  marker \texttt{>} and followed by a newline character.
+  If the line length is less than zero, \texttt{printSeqData} sets it to
+  the default line length. Then the lines of data are printed, before
+  the algorithm checks whether the last line still needs a closing
+  newline.
 #+end_src
-#+begin_src C <<Print header>>=
-  fprintf(fp, ">%s\n", s->name);
+#+begin_src C <<Function definitions>>=
+  void printSeqData(FILE *fp, Seq *s, int l) {
+    if (l <= 0)
+      l = DEFAULT_LINE_LEN;
+    //<<Print lines>>
+    //<<Print newline?>>
+  }
 #+end_src
 #+begin_src latex
-  The line length for the data is \texttt{l} if $\texttt{l} > 0$ or
-  \texttt{DEFAULT\_LINE\_LEN} otherwise. The line length is achieved by
-  applying the modulo function, \texttt{\%}, to the number of residues
-  printed so far. Whenever this is zero, a newline character is due to
-  be printed.
+  The line length is achieved by applying the modulo function,
+  \texttt{\%}, to the number of residues printed so far. Whenever this
+  is zero, a newline character is printed.
 #+end_src
-#+begin_src C <<Print data>>=
-  if (l <= 0)
-    l = DEFAULT_LINE_LEN;
+#+begin_src C <<Print lines>>=
   for (int i = 0; i < s->l; i++) {
     fprintf(fp, "%c", s->data[i]);
     if ((i + 1) % l == 0)
@@ -500,8 +507,8 @@ A good default line length is 70 characters.
   }
 #+end_src
 #+begin_src latex
-  The last line still needs to be terminated by a newline, unless it is
-  $\texttt{l}$ residues long.
+  If the last line is shorter than a full line, it also requires a
+  closing newline character.
 #+end_src
 #+begin_src C <<Print newline?>>=
   if (s->l % l)
@@ -681,6 +688,7 @@ A good default line length is 70 characters.
   \item \texttt{getJoinedSeq}
   \item \texttt{getSeq}
   \item \texttt{printSeq}
+  \item \texttt{printSeqData}
   \item \texttt{revCmpSeq}
   \item \texttt{gcSeq}
   \item \texttt{catSeq}
@@ -690,12 +698,13 @@ A good default line length is 70 characters.
   doesn't require a separate test. Similarly, \texttt{freeSeq} is tested
   implicitly by running the test program under \texttt{valgrind} and
   looking for memory leaks. The results of test runs need to be printed,
-  so \texttt{printSeq} is also part of all other other tests. Testing
-  \texttt{catSeq} involves handling two sequences, for which the three
-  sequence array functions \texttt{newSeqArr}, \texttt{freeSeqArr}, and
-  \texttt{freeSeqArr} are used. This leaves five functions to be tested
-  individually: \texttt{getJoinedSeq}, \texttt{getSeq},
-  \texttt{revCmpSeq}, \texttt{gcSeq}, and \texttt{catSeq}.
+  so \texttt{printSeq} and hence \texttt{printSeqData} it calls are also
+  part of all other other tests. Testing \texttt{catSeq} involves
+  handling two sequences, for which the three sequence array functions
+  \texttt{newSeqArr}, \texttt{freeSeqArr}, and \texttt{freeSeqArr} are
+  used. This leaves five functions to be tested individually:
+  \texttt{getJoinedSeq}, \texttt{getSeq}, \texttt{revCmpSeq},
+  \texttt{gcSeq}, and \texttt{catSeq}.
 
   The \texttt{main} function of the test program has two components, one
   based on a small data file containing two sequences, each 100 bp
