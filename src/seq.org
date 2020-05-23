@@ -392,8 +392,10 @@ A good default line length is 70 characters.
   the customary null character in its last position.
 #+end_src
 #+begin_src C <<Return sequence>>=
-  seq->data = erealloc(seq->data, seq->l + 1);
-  seq->data[seq->l] = '\0';
+  if (seq) {
+    seq->data = erealloc(seq->data, seq->l + 1);
+    seq->data[seq->l] = '\0';
+  }
   return seq;
 #+end_src
 #+begin_src latex
@@ -409,7 +411,6 @@ A good default line length is 70 characters.
 #+end_src
 #+begin_src C <<Function definitions>>=
   Seq *getSeq(FILE *fp) {
-    Seq *seq = NULL;
     // <<Prepare sequence parsing>>
     // <<Header left over from previous call?>>
     while ((nread = getline(&line, &len, fp)) != -1) {
@@ -429,10 +430,12 @@ A good default line length is 70 characters.
   declared \texttt{static}.
 #+end_src
 #+begin_src C <<Prepare sequence parsing>>=
+  Seq *seq;
   static char *line = NULL;
   ssize_t nread;
   static size_t len = 0;
   size_t maxLen = 0;
+  seq = NULL;
 #+end_src
 #+begin_src latex
   If a line is left over from the previous call, this may be a header,
