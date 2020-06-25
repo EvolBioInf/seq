@@ -532,13 +532,13 @@ A good default line length is 70 characters.
 #+end_src
 #+begin_src latex
   A new sequence is created with \texttt{newSeq}. However, to mark it as
-  the reverse complement of the original, its name is extended by the
-  seven characters \texttt{\_revCmp}.
+  the reverse complement of the original, its name is extended by
+  \texttt{\_revCmp}.
 #+end_src
 #+begin_src C <<Create new sequence>>=
   n = newSeq(s->name);
   n->name = erealloc(n->name, strlen(n->name) + 8);
-  strncat(n->name, "_revCmp", 7);
+  strcat(n->name, "_revCmp");
 #+end_src
 #+begin_src latex
   Reverting a sequence requires space for the new sequence. Then a
